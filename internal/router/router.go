@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/aveiga/cloud-api-gateway/internal/config"
+	"github.com/aveiga/archgate/internal/config"
 )
 
 // Router matches incoming requests against configured routes

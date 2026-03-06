@@ -13,11 +13,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aveiga/cloud-api-gateway/internal/auth"
-	"github.com/aveiga/cloud-api-gateway/internal/config"
-	"github.com/aveiga/cloud-api-gateway/internal/middleware"
-	"github.com/aveiga/cloud-api-gateway/internal/proxy"
-	"github.com/aveiga/cloud-api-gateway/internal/router"
+	"github.com/aveiga/archgate/internal/auth"
+	"github.com/aveiga/archgate/internal/config"
+	"github.com/aveiga/archgate/internal/middleware"
+	"github.com/aveiga/archgate/internal/proxy"
+	"github.com/aveiga/archgate/internal/router"
 )
 
 // loadEnvFile reads a .env file and sets variables in the process environment.

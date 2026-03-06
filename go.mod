@@ -1,4 +1,4 @@
-module github.com/aveiga/cloud-api-gateway
+module github.com/aveiga/archgate
 
 go 1.25.2
 

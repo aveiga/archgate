@@ -1,4 +1,4 @@
-# Cloud API Gateway
+# Archgate
 
 A high-performance, configurable API Gateway written in Go with Keycloak integration for RBAC (Role-Based Access Control).
 
@@ -15,7 +15,7 @@ A high-performance, configurable API Gateway written in Go with Keycloak integra
 ## Project Structure
 
 ```
-cloud-api-gateway/
+archgate/
 ├── cmd/gateway/main.go           # Entry point, config loading, server startup
 ├── internal/
 │   ├── config/config.go          # YAML config structs and loader
@@ -41,13 +41,13 @@ go build ./cmd/gateway
 
 ```bash
 # Build for current platform
-docker build -t cloud-api-gateway .
+docker build -t archgate .
 
 # Build for specific platform (e.g., Apple M-series)
-docker build --platform linux/arm64 -t cloud-api-gateway .
+docker build --platform linux/arm64 -t archgate .
 
 # Build for multiple platforms
-docker buildx build --platform linux/amd64,linux/arm64 -t cloud-api-gateway .
+docker buildx build --platform linux/amd64,linux/arm64 -t archgate .
 ```
 
 ## Running
@@ -68,15 +68,15 @@ CONFIG_PATH=config.yaml ./gateway
 # Using Docker image from GitHub Container Registry
 docker run -p 4010:4010 \
   -v $(pwd)/config.yaml:/app/config.yaml \
-  ghcr.io/aveiga/cloud-api-gateway:latest
+  ghcr.io/aveiga/archgate:latest
 
 # Or build and run locally
 docker run -p 4010:4010 \
   -v $(pwd)/config.yaml:/app/config.yaml \
-  cloud-api-gateway
+  archgate
 ```
 
-**Note**: Replace `aveiga/cloud-api-gateway` with your GitHub username/organization and repository name.
+**Note**: Replace `aveiga/archgate` with your GitHub username/organization and repository name.
 
 ## Configuration
 

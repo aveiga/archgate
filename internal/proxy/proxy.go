@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aveiga/cloud-api-gateway/internal/config"
+	"github.com/aveiga/archgate/internal/config"
 )
 
 // Proxy handles reverse proxying to upstream services

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/aveiga/cloud-api-gateway/internal/auth"
+	"github.com/aveiga/archgate/internal/auth"
 )
 
 type contextKey string

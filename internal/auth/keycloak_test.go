@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aveiga/cloud-api-gateway/internal/config"
+	"github.com/aveiga/archgate/internal/config"
 )
 
 func TestGetAllRolesFromRealmAccess(t *testing.T) {

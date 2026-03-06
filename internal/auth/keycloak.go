@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aveiga/cloud-api-gateway/internal/config"
+	"github.com/aveiga/archgate/internal/config"
 )
 
 // IntrospectionResponse represents the response from Keycloak token introspection

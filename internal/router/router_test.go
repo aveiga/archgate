@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/aveiga/cloud-api-gateway/internal/config"
+	"github.com/aveiga/archgate/internal/config"
 )
 
 func TestMatchRouteProtectedUsesRuleMethods(t *testing.T) {

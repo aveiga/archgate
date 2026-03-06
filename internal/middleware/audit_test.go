@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/aveiga/cloud-api-gateway/internal/auth"
+	"github.com/aveiga/archgate/internal/auth"
 )
 
 func TestAuditMiddlewareSkipsHealthPath(t *testing.T) {

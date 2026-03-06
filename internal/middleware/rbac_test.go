@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/aveiga/cloud-api-gateway/internal/auth"
-	"github.com/aveiga/cloud-api-gateway/internal/config"
+	"github.com/aveiga/archgate/internal/auth"
+	"github.com/aveiga/archgate/internal/config"
 )
 
 func requestWithRoles(roles []string) *http.Request {

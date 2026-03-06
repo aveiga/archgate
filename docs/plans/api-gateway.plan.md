@@ -44,7 +44,7 @@ All other functionality uses stdlib: `net/http`, `httputil.ReverseProxy`, `regex
 ## Project Structure
 
 ```
-cloud-api-gateway/
+archgate/
 ├── cmd/gateway/main.go           # Entry point, config loading, server startup
 ├── internal/
 │   ├── config/config.go          # YAML config structs and loader

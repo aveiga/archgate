@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/aveiga/cloud-api-gateway/internal/config"
+	"github.com/aveiga/archgate/internal/config"
 )
 
 // RBACMiddleware checks if the authenticated user has the required roles

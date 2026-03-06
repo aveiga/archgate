@@ -1,7 +1,7 @@
 # Multi-architecture Dockerfile
 # Supports: linux/amd64, linux/arm64 (Apple M-series, AWS Graviton)
-# Build for current platform: docker build -t cloud-api-gateway .
-# Build for multiple platforms: docker buildx build --platform linux/amd64,linux/arm64 -t cloud-api-gateway .
+# Build for current platform: docker build -t archgate .
+# Build for multiple platforms: docker buildx build --platform linux/amd64,linux/arm64 -t archgate .
 
 # Build stage
 FROM golang:1.25-alpine AS builder
