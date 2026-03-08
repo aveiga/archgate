@@ -1,5 +1,8 @@
 # Archgate
 
+[![PR Quality Gate](https://github.com/aveiga/archgate/actions/workflows/pr-quality-gate.yml/badge.svg)](https://github.com/aveiga/archgate/actions/workflows/pr-quality-gate.yml)
+[![Docker Build](https://github.com/aveiga/archgate/actions/workflows/docker-build.yml/badge.svg)](https://github.com/aveiga/archgate/actions/workflows/docker-build.yml)
+
 A high-performance, configurable API Gateway written in Go with Keycloak integration for RBAC (Role-Based Access Control).
 
 ## Features
