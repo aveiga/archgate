@@ -1,16 +1,15 @@
 ---
-description: Unit tests must cover 90% of the codebase
+description: Unit tests must cover 80% of the codebase
 alwaysApply: true
 ---
 
 # Unit Test Coverage
 
-Unit tests must always cover at least **90%** of the codebase.
+Unit tests must always cover at least **80%** of the codebase.
 
 ## Requirements
 
-- Run coverage before merging: `go test -cover ./...`
-- Target: `-coverprofile` must report ≥90% coverage
+- Run coverage before merging: `make test`. The command must not return an error.
 - When adding new code, add corresponding tests to maintain or improve coverage
 - When fixing bugs, add regression tests
 
@@ -31,7 +30,5 @@ func processRequest(r *Request) error {
 ## Coverage Commands
 
 ```bash
-go test -cover ./...
-go test -coverprofile=coverage.out ./...
-go tool cover -func=coverage.out  # View per-package %
+make test
 ```

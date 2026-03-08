@@ -1,9 +1,12 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -12,10 +15,20 @@ import (
 
 // Config represents the root configuration structure
 type Config struct {
-	Server   ServerConfig   `yaml:"server"`
-	Authz AuthzConfig `yaml:"authz"`
-	Cache    CacheConfig    `yaml:"cache"`
-	Routes   []RouteConfig  `yaml:"routes"`
+	Server ServerConfig
+	Authz  AuthzConfig
+	Cache  CacheConfig
+	Routes []RouteConfig
+}
+
+type baseConfigFile struct {
+	Server ServerConfig `yaml:"server"`
+	Authz  AuthzConfig  `yaml:"authz"`
+	Cache  CacheConfig  `yaml:"cache"`
+}
+
+type routesConfigFile struct {
+	Routes []RouteConfig `yaml:"routes"`
 }
 
 // ServerConfig holds HTTP server configuration
@@ -62,18 +75,44 @@ type RouteConfig struct {
 	Rules             []RouteRule `yaml:"rules"`
 }
 
-// Load reads and parses the YAML configuration file
-func Load(filePath string) (*Config, error) {
-	data, err := os.ReadFile(filePath)
+// LoadWithRoutesDir reads the base configuration file plus all route YAML files
+// in the supplied routes directory.
+func LoadWithRoutesDir(filePath, routesDir string) (*Config, error) {
+	baseCfg, err := loadBaseConfig(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+		return nil, err
 	}
 
-	// Substitute environment variables
-	content := substituteEnvVars(string(data))
+	routes, err := loadRoutesDir(routesDir)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := &Config{
+		Server: baseCfg.Server,
+		Authz:  baseCfg.Authz,
+		Cache:  baseCfg.Cache,
+		Routes: routes,
+	}
+
+	// Validate and pre-compile regex patterns
+	if err := cfg.validateAndCompile(); err != nil {
+		return nil, fmt.Errorf("validation failed: %w", err)
+	}
+
+	return cfg, nil
+}
+
+// Load reads and parses the YAML configuration file.
+// This loader is kept for tests and direct config loading without a routes directory.
+func Load(filePath string) (*Config, error) {
+	content, err := readAndSubstituteYAML(filePath)
+	if err != nil {
+		return nil, err
+	}
 
 	var cfg Config
-	if err := yaml.Unmarshal([]byte(content), &cfg); err != nil {
+	if err := decodeYAML([]byte(content), &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
@@ -83,6 +122,91 @@ func Load(filePath string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+func loadBaseConfig(filePath string) (*baseConfigFile, error) {
+	content, err := readAndSubstituteYAML(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg baseConfigFile
+	if err := decodeYAML([]byte(content), &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+	}
+
+	return &cfg, nil
+}
+
+func loadRoutesDir(routesDir string) ([]RouteConfig, error) {
+	entries, err := os.ReadDir(routesDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read routes directory: %w", err)
+	}
+
+	var routeFiles []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		if ext != ".yaml" && ext != ".yml" {
+			continue
+		}
+
+		routeFiles = append(routeFiles, filepath.Join(routesDir, entry.Name()))
+	}
+
+	if len(routeFiles) == 0 {
+		return nil, fmt.Errorf("no route YAML files found in routes directory: %s", routesDir)
+	}
+
+	sort.Strings(routeFiles)
+
+	var routes []RouteConfig
+	for _, routeFile := range routeFiles {
+		fileRoutes, err := loadRoutesFile(routeFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load routes file %s: %w", routeFile, err)
+		}
+		routes = append(routes, fileRoutes...)
+	}
+
+	return routes, nil
+}
+
+func loadRoutesFile(filePath string) ([]RouteConfig, error) {
+	content, err := readAndSubstituteYAML(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg routesConfigFile
+	if err := decodeYAML([]byte(content), &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+	}
+
+	if len(cfg.Routes) == 0 {
+		return nil, fmt.Errorf("routes must define at least one entry")
+	}
+
+	return cfg.Routes, nil
+}
+
+func readAndSubstituteYAML(filePath string) (string, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	return substituteEnvVars(string(data)), nil
+}
+
+func decodeYAML(content []byte, out any) error {
+	decoder := yaml.NewDecoder(bytes.NewReader(content))
+	decoder.KnownFields(true)
+	return decoder.Decode(out)
 }
 
 // substituteEnvVars replaces ${VAR} or ${VAR:-default} patterns with environment variable values

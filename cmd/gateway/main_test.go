@@ -73,3 +73,20 @@ func TestLoadEnvFileStripsQuotes(t *testing.T) {
 		t.Errorf("expected stripped quotes, got %q", os.Getenv("QUOTED"))
 	}
 }
+
+func TestResolveRoutesDirDefaultsToRoutes(t *testing.T) {
+	os.Unsetenv("ROUTES_DIR")
+
+	if got := resolveRoutesDir(); got != defaultRoutesDir {
+		t.Fatalf("expected default routes dir %q, got %q", defaultRoutesDir, got)
+	}
+}
+
+func TestResolveRoutesDirUsesOverride(t *testing.T) {
+	os.Setenv("ROUTES_DIR", "/custom-routes")
+	defer os.Unsetenv("ROUTES_DIR")
+
+	if got := resolveRoutesDir(); got != "/custom-routes" {
+		t.Fatalf("expected ROUTES_DIR override, got %q", got)
+	}
+}

@@ -16,6 +16,22 @@ func writeConfig(t *testing.T, content string) string {
 	return path
 }
 
+func writeFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("write file %s: %v", path, err)
+	}
+}
+
+func writeRoutesFiles(t *testing.T, files map[string]string) string {
+	t.Helper()
+	dir := t.TempDir()
+	for name, content := range files {
+		writeFile(t, filepath.Join(dir, name), content)
+	}
+	return dir
+}
+
 func baseConfig(routes string) string {
 	return `
 server:
@@ -33,6 +49,28 @@ cache:
   ttl: 60s
 routes:
 ` + routes
+}
+
+func baseConfigWithoutRoutes() string {
+	return `
+server:
+  port: 4010
+  read_timeout: 30s
+  write_timeout: 30s
+  idle_timeout: 120s
+authz:
+  introspection_url: "http://keycloak/introspect"
+  client_id: "gateway"
+  client_secret: "secret"
+  timeout: 5s
+cache:
+  enabled: true
+  ttl: 60s
+`
+}
+
+func routeFile(routes string) string {
+	return "routes:\n" + routes
 }
 
 func TestLoadRejectsRouteWithoutRules(t *testing.T) {
@@ -367,5 +405,114 @@ func TestLoadAcceptsPatternWithExistingCaseInsensitiveFlag(t *testing.T) {
 	}
 	if cfg.Routes[0].CompiledPattern == nil {
 		t.Fatal("expected compiled pattern")
+	}
+}
+
+func TestLoadWithRoutesDirMergesFilesLexicographically(t *testing.T) {
+	cfgPath := writeConfig(t, baseConfigWithoutRoutes())
+	routesDir := writeRoutesFiles(t, map[string]string{
+		"20-admin.yml": routeFile(`
+  - name: "admin"
+    path_pattern: "^/admin$"
+    upstream: "http://admin:8080"
+    rules:
+      - methods: ["GET"]
+        required_roles: ["admin"]
+        require_all_roles: true
+`),
+		"10-users.yaml": routeFile(`
+  - name: "users"
+    path_pattern: "^/users$"
+    upstream: "http://users:8080"
+    rules:
+      - methods: ["GET"]
+        required_roles: []
+        require_all_roles: true
+`),
+	})
+
+	cfg, err := LoadWithRoutesDir(cfgPath, routesDir)
+	if err != nil {
+		t.Fatalf("load config with routes dir: %v", err)
+	}
+
+	if len(cfg.Routes) != 2 {
+		t.Fatalf("expected 2 routes, got %d", len(cfg.Routes))
+	}
+	if cfg.Routes[0].Name != "users" || cfg.Routes[1].Name != "admin" {
+		t.Fatalf("expected lexicographic route order, got %q then %q", cfg.Routes[0].Name, cfg.Routes[1].Name)
+	}
+}
+
+func TestLoadWithRoutesDirSubstitutesEnvVarsInRouteFiles(t *testing.T) {
+	cfgPath := writeConfig(t, baseConfigWithoutRoutes())
+	routesDir := writeRoutesFiles(t, map[string]string{
+		"users.yaml": routeFile(`
+  - name: "users"
+    path_pattern: "^/users$"
+    upstream: "${ROUTE_UPSTREAM}"
+    rules:
+      - methods: ["GET"]
+        required_roles: []
+        require_all_roles: true
+`),
+	})
+
+	os.Setenv("ROUTE_UPSTREAM", "http://users:8080")
+	defer os.Unsetenv("ROUTE_UPSTREAM")
+
+	cfg, err := LoadWithRoutesDir(cfgPath, routesDir)
+	if err != nil {
+		t.Fatalf("load config with routes dir: %v", err)
+	}
+
+	if got := cfg.Routes[0].Upstream; got != "http://users:8080" {
+		t.Fatalf("expected env var substitution in route file, got %q", got)
+	}
+}
+
+func TestLoadWithRoutesDirRejectsMissingDirectory(t *testing.T) {
+	cfgPath := writeConfig(t, baseConfigWithoutRoutes())
+
+	_, err := LoadWithRoutesDir(cfgPath, filepath.Join(t.TempDir(), "missing"))
+	if err == nil || !strings.Contains(err.Error(), "failed to read routes directory") {
+		t.Fatalf("expected missing routes directory error, got: %v", err)
+	}
+}
+
+func TestLoadWithRoutesDirRejectsEmptyDirectory(t *testing.T) {
+	cfgPath := writeConfig(t, baseConfigWithoutRoutes())
+	routesDir := t.TempDir()
+
+	_, err := LoadWithRoutesDir(cfgPath, routesDir)
+	if err == nil || !strings.Contains(err.Error(), "no route YAML files found") {
+		t.Fatalf("expected empty routes directory error, got: %v", err)
+	}
+}
+
+func TestLoadWithRoutesDirRejectsInvalidRouteFileYAML(t *testing.T) {
+	cfgPath := writeConfig(t, baseConfigWithoutRoutes())
+	routesDir := writeRoutesFiles(t, map[string]string{
+		"broken.yaml": "routes:\n  - name: broken\n    path_pattern: [\n",
+	})
+
+	_, err := LoadWithRoutesDir(cfgPath, routesDir)
+	if err == nil || !strings.Contains(err.Error(), "failed to parse YAML") {
+		t.Fatalf("expected invalid route file YAML error, got: %v", err)
+	}
+}
+
+func TestLoadWithRoutesDirRejectsNonRouteYAMLContent(t *testing.T) {
+	cfgPath := writeConfig(t, baseConfigWithoutRoutes())
+	routesDir := writeRoutesFiles(t, map[string]string{
+		"not-routes.yaml": `
+server:
+  port: 4010
+`,
+	})
+
+	_, err := LoadWithRoutesDir(cfgPath, routesDir)
+	if err == nil || !strings.Contains(err.Error(), "field server not found") {
+		t.Fatalf("expected non-route YAML content error, got: %v", err)
 	}
 }

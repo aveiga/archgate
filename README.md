@@ -17,6 +17,7 @@ A high-performance, configurable API Gateway written in Go with Keycloak integra
 ```
 archgate/
 ├── cmd/gateway/main.go           # Entry point, config loading, server startup
+├── config.example.yaml           # Base config (server, authz, cache)
 ├── internal/
 │   ├── config/config.go          # YAML config structs and loader
 │   ├── auth/keycloak.go          # Keycloak introspection client
@@ -25,7 +26,6 @@ archgate/
 │   │   └── rbac.go               # Role-based access control middleware
 │   ├── proxy/proxy.go            # Reverse proxy with connection pooling
 │   └── router/router.go          # Regex-based route matching
-├── config.example.yaml           # Example configuration
 └── go.mod
 ```
 
@@ -55,11 +55,11 @@ docker buildx build --platform linux/amd64,linux/arm64 -t archgate .
 ### Local Execution
 
 ```bash
-# Using command line flag
-./gateway -config config.yaml
-
-# Using environment variable
+# Use the default /routes directory
 CONFIG_PATH=config.yaml ./gateway
+
+# Override the routes directory
+CONFIG_PATH=config.yaml ROUTES_DIR=./routes ./gateway
 ```
 
 ### Docker Execution
@@ -68,11 +68,13 @@ CONFIG_PATH=config.yaml ./gateway
 # Using Docker image from GitHub Container Registry
 docker run -p 4010:4010 \
   -v $(pwd)/config.yaml:/app/config.yaml \
+  -v $(pwd)/routes:/routes \
   ghcr.io/aveiga/archgate:latest
 
 # Or build and run locally
 docker run -p 4010:4010 \
   -v $(pwd)/config.yaml:/app/config.yaml \
+  -v $(pwd)/routes:/routes \
   archgate
 ```
 
@@ -80,14 +82,17 @@ docker run -p 4010:4010 \
 
 ## Configuration
 
-See `config.example.yaml` for a complete example configuration file.
+See `config.example.yaml` for the base configuration file. Route definitions are
+loaded separately from YAML files in `/routes` by default, or from the
+directory pointed to by `ROUTES_DIR`.
 
 ### Key Configuration Options
 
 - **Server**: Port, timeouts, and HTTP server settings
 - **Authz**: Introspection URL, client credentials, and timeout
 - **Cache**: Token caching settings (enabled/disabled, TTL)
-- **Routes**: Route definitions with path patterns, upstream URLs, and `rules[]` authorization policies
+- **Routes Directory**: A directory of `.yaml` and `.yml` files, each defining
+  one or more routes under a top-level `routes:` key
 
 ### Route Model
 
@@ -97,9 +102,47 @@ See `config.example.yaml` for a complete example configuration file.
 - Authorization is OR across rules: a request is allowed if any matching rule passes.
 - Rules with `require_auth: false` must not define non-empty `required_roles`.
 
+### Routes Directory Layout
+
+Archgate reads all `.yaml` and `.yml` files in the routes directory, sorts them
+lexicographically, and appends their `routes:` arrays into a single route list.
+That ordering is important because route matching is first-match-wins.
+
+Example layout:
+
+```text
+routes/
+├── 10-users.yaml
+└── 90-health.yml
+```
+
+Example route file:
+
+```yaml
+routes:
+  - name: "user-api"
+    path_pattern: "^/api/v1/users(/.*)?$"
+    upstream: "http://user-service:8080"
+    strip_prefix: "/api/v1"
+    rules:
+      - methods: ["POST", "PUT", "DELETE"]
+        required_roles: ["user:write"]
+        require_all_roles: true
+      - methods: ["GET"]
+        required_roles: ["user:read"]
+        require_all_roles: true
+
+  - name: "health"
+    path_pattern: "^/health$"
+    upstream: "http://health-service:8080"
+    rules:
+      - methods: ["GET"]
+        require_auth: false
+```
+
 ### Environment Variable Substitution
 
-Configuration supports environment variable substitution:
+Both the base config and route files support environment variable substitution:
 
 - `${VAR_NAME}` - Replaced with environment variable value
 - `${VAR_NAME:-default}` - Uses default value if environment variable is not set

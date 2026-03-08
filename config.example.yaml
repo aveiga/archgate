@@ -1,5 +1,7 @@
-# Example configuration for Cloud API Gateway
-# Copy this file to config.yaml and customize for your environment
+# Example configuration for Archgate
+# Copy this file to config.yaml and customize for your environment.
+# Route definitions are loaded from YAML files in /routes by default.
+# Override that directory with ROUTES_DIR if needed.
 
 server:
   port: 4010
@@ -21,45 +23,3 @@ cache:
   enabled: true
   # Token cache TTL - caches introspection results to reduce Keycloak load
   ttl: 60s
-
-routes:
-  # Example: Protected route with multiple authorization rules.
-  - name: "user-api"
-    path_pattern: "^/api/v1/users(/.*)?$"
-    upstream: "http://user-service:8080"
-    strip_prefix: "/api/v1"
-    rules:
-      # Rule 1: writers can create/update/delete users
-      - methods: ["POST", "PUT", "DELETE"]
-        required_roles: ["user:write"]
-        require_all_roles: true
-      # Rule 2: readers can fetch users
-      - methods: ["GET"]
-        required_roles: ["user:read"]
-        require_all_roles: true
-
-  # Example: Protected route with method-specific admin access.
-  - name: "admin-api"
-    path_pattern: "^/api/v1/admin(/.*)?$"
-    upstream: "http://admin-service:8080"
-    rules:
-      - methods: ["GET", "POST", "PUT", "DELETE"]
-        required_roles: ["admin", "superuser"]
-        require_all_roles: true
-
-  # Example: Authenticated route with no role requirement.
-  - name: "public-api"
-    path_pattern: "^/api/v1/public(/.*)?$"
-    upstream: "http://public-service:8080"
-    rules:
-      - methods: ["GET"]
-        required_roles: []
-        require_all_roles: true
-
-  # Example: Public endpoint (no authentication).
-  - name: "health"
-    path_pattern: "^/health$"
-    upstream: "http://health-service:8080"
-    rules:
-      - methods: ["GET"]
-        require_auth: false

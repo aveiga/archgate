@@ -20,6 +20,8 @@ import (
 	"github.com/aveiga/archgate/internal/router"
 )
 
+const defaultRoutesDir = "/routes"
+
 // loadEnvFile reads a .env file and sets variables in the process environment.
 // If the file does not exist, it returns without error. Skips empty lines and
 // lines starting with #. Handles KEY=value and basic quoted values.
@@ -63,6 +65,14 @@ func splitRulesByAuth(rules []config.RouteRule) (publicRules []config.RouteRule,
 	return publicRules, protectedRules
 }
 
+func resolveRoutesDir() string {
+	routesDir := os.Getenv("ROUTES_DIR")
+	if routesDir == "" {
+		return defaultRoutesDir
+	}
+	return routesDir
+}
+
 func main() {
 	loadEnvFile(".env")
 
@@ -80,7 +90,7 @@ func main() {
 	}
 
 	// Load configuration
-	cfg, err := config.Load(*configPath)
+	cfg, err := config.LoadWithRoutesDir(*configPath, resolveRoutesDir())
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
