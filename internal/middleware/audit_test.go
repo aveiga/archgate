@@ -1,14 +1,49 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/aveiga/archgate/internal/auth"
 )
+
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+
+	originalStdout := os.Stdout
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("create stdout pipe: %v", err)
+	}
+
+	os.Stdout = writer
+	defer func() {
+		os.Stdout = originalStdout
+	}()
+
+	fn()
+
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close writer: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, reader); err != nil {
+		t.Fatalf("read stdout: %v", err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatalf("close reader: %v", err)
+	}
+
+	return strings.TrimSpace(buf.String())
+}
 
 func TestAuditMiddlewareSkipsHealthPath(t *testing.T) {
 	mw := NewAuditMiddleware()
@@ -226,19 +261,41 @@ func TestAuditMiddlewareLogsNonJSONBodyTruncated(t *testing.T) {
 func TestAuditMiddlewareLogsRequestWithTokenClaims(t *testing.T) {
 	mw := NewAuditMiddleware()
 	rec := httptest.NewRecorder()
-	handler := mw.Handler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	req := httptest.NewRequest("GET", "/api/users", nil)
-	req.RemoteAddr = "10.0.0.1:80"
 	claims := &auth.IntrospectionResponse{
 		Active:      true,
 		Username:    "alice",
 		RealmAccess: auth.RealmAccess{Roles: []string{"admin"}},
 	}
-	req = req.WithContext(context.WithValue(req.Context(), TokenClaimsKey, claims))
-	handler.ServeHTTP(rec, req)
+
+	authThenAudit := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), TokenClaimsKey, claims)
+		mw.Handler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})).ServeHTTP(w, r.WithContext(ctx))
+	})
+
+	req := httptest.NewRequest("GET", "/api/users", nil)
+	req.RemoteAddr = "10.0.0.1:80"
+
+	output := captureStdout(t, func() {
+		authThenAudit.ServeHTTP(rec, req)
+	})
+
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", rec.Code)
+	}
+
+	var entry AuditLogEntry
+	if err := json.Unmarshal([]byte(output), &entry); err != nil {
+		t.Fatalf("unmarshal audit log output: %v\noutput: %s", err, output)
+	}
+	if entry.UserID == nil || *entry.UserID != "alice" {
+		t.Fatalf("expected userId alice, got %#v", entry.UserID)
+	}
+	if entry.UserName == nil || *entry.UserName != "alice" {
+		t.Fatalf("expected userName alice, got %#v", entry.UserName)
+	}
+	if len(entry.Roles) != 1 || entry.Roles[0] != "admin" {
+		t.Fatalf("expected admin role, got %v", entry.Roles)
 	}
 }

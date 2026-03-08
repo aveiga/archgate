@@ -66,7 +66,7 @@ func splitRulesByAuth(rules []config.RouteRule) (publicRules []config.RouteRule,
 }
 
 func resolveRoutesDir() string {
-	routesDir := os.Getenv("ROUTES_DIR")
+	routesDir := os.Getenv("ROUTES_DIR_PATH")
 	if routesDir == "" {
 		return defaultRoutesDir
 	}
@@ -119,20 +119,18 @@ func main() {
 		}
 
 		// Compose middleware chain from matched rules.
-		// Any matching public rule bypasses auth; otherwise use auth + RBAC.
-		var chain http.Handler = routeProxy
+		// Public routes skip auth, while protected routes run auth before audit so
+		// audit logging can read the authenticated request context.
+		var chain http.Handler = auditMW.Handler(routeProxy)
 
 		publicRules, protectedRules := splitRulesByAuth(matchingRules)
 		if len(publicRules) == 0 {
 			rbacMW := middleware.NewRBACMiddleware(matchedRoute.Name, protectedRules)
-			chain = authMW.Handler(rbacMW.Handler(routeProxy))
+			chain = authMW.Handler(auditMW.Handler(rbacMW.Handler(routeProxy)))
 		}
 
 		chain.ServeHTTP(w, r)
 	})
-
-	// Wrap handler with audit logging middleware (applied first to log all requests)
-	handler = auditMW.Handler(handler)
 
 	// Create HTTP server
 	server := &http.Server{

@@ -75,7 +75,7 @@ func TestLoadEnvFileStripsQuotes(t *testing.T) {
 }
 
 func TestResolveRoutesDirDefaultsToRoutes(t *testing.T) {
-	os.Unsetenv("ROUTES_DIR")
+	os.Unsetenv("ROUTES_DIR_PATH")
 
 	if got := resolveRoutesDir(); got != defaultRoutesDir {
 		t.Fatalf("expected default routes dir %q, got %q", defaultRoutesDir, got)
@@ -83,10 +83,10 @@ func TestResolveRoutesDirDefaultsToRoutes(t *testing.T) {
 }
 
 func TestResolveRoutesDirUsesOverride(t *testing.T) {
-	os.Setenv("ROUTES_DIR", "/custom-routes")
-	defer os.Unsetenv("ROUTES_DIR")
+	os.Setenv("ROUTES_DIR_PATH", "/custom-routes")
+	defer os.Unsetenv("ROUTES_DIR_PATH")
 
 	if got := resolveRoutesDir(); got != "/custom-routes" {
-		t.Fatalf("expected ROUTES_DIR override, got %q", got)
+		t.Fatalf("expected ROUTES_DIR_PATH override, got %q", got)
 	}
 }

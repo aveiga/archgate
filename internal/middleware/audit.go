@@ -24,8 +24,8 @@ var skipMethods = []string{"OPTIONS"}
 // responseWriter wraps http.ResponseWriter to capture response data
 type responseWriter struct {
 	http.ResponseWriter
-	statusCode int
-	body        *bytes.Buffer
+	statusCode    int
+	body          *bytes.Buffer
 	headerWritten bool
 }
 
@@ -59,26 +59,26 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 
 // AuditLogEntry represents the audit log structure
 type AuditLogEntry struct {
-	Type           string                 `json:"type"`
-	Timestamp      string                 `json:"timestamp"`
-	Method         string                 `json:"method"`
-	URL            string                 `json:"url"`
-	Path           string                 `json:"path"`
-	Query          map[string][]string    `json:"query"`
-	Headers        map[string]string      `json:"headers"`
-	Body           interface{}            `json:"body"`
-	UserAgent      string                 `json:"userAgent"`
-	IPAddress      string                 `json:"ipAddress"`
-	UserID         *string                `json:"userId"`
-	OrganizationID *string                `json:"organizationId"`
-	UserName       *string                `json:"userName"`
-	Roles          []string               `json:"roles"`
-	UserEmail      *string                `json:"userEmail"`
-	ResponseStatus int                    `json:"responseStatus"`
-	ResponseTime   int64                  `json:"responseTime"`
-	RequestSize    int64                  `json:"requestSize"`
-	ResponseSize   int64                  `json:"responseSize"`
-	Error          *string                `json:"error"`
+	Type           string              `json:"type"`
+	Timestamp      string              `json:"timestamp"`
+	Method         string              `json:"method"`
+	URL            string              `json:"url"`
+	Path           string              `json:"path"`
+	Query          map[string][]string `json:"query"`
+	Headers        map[string]string   `json:"headers"`
+	Body           interface{}         `json:"body"`
+	UserAgent      string              `json:"userAgent"`
+	IPAddress      string              `json:"ipAddress"`
+	UserID         *string             `json:"userId"`
+	OrganizationID *string             `json:"organizationId"`
+	UserName       *string             `json:"userName"`
+	Roles          []string            `json:"roles"`
+	UserEmail      *string             `json:"userEmail"`
+	ResponseStatus int                 `json:"responseStatus"`
+	ResponseTime   int64               `json:"responseTime"`
+	RequestSize    int64               `json:"requestSize"`
+	ResponseSize   int64               `json:"responseSize"`
+	Error          *string             `json:"error"`
 }
 
 // AuditMiddleware handles audit logging for all requests

@@ -1,7 +1,7 @@
 # Example configuration for Archgate
 # Copy this file to config.yaml and customize for your environment.
 # Route definitions are loaded from YAML files in /routes by default.
-# Override that directory with ROUTES_DIR if needed.
+# Override that directory with ROUTES_DIR_PATH if needed.
 
 server:
   port: 4010

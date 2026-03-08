@@ -59,7 +59,7 @@ docker buildx build --platform linux/amd64,linux/arm64 -t archgate .
 CONFIG_PATH=config.yaml ./gateway
 
 # Override the routes directory
-CONFIG_PATH=config.yaml ROUTES_DIR=./routes ./gateway
+CONFIG_PATH=config.yaml ROUTES_DIR_PATH=./routes ./gateway
 ```
 
 ### Docker Execution
@@ -84,7 +84,7 @@ docker run -p 4010:4010 \
 
 See `config.example.yaml` for the base configuration file. Route definitions are
 loaded separately from YAML files in `/routes` by default, or from the
-directory pointed to by `ROUTES_DIR`.
+directory pointed to by `ROUTES_DIR_PATH`.
 
 ### Key Configuration Options
 
