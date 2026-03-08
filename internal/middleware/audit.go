@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -70,10 +71,8 @@ type AuditLogEntry struct {
 	UserAgent      string              `json:"userAgent"`
 	IPAddress      string              `json:"ipAddress"`
 	UserID         *string             `json:"userId"`
-	OrganizationID *string             `json:"organizationId"`
 	UserName       *string             `json:"userName"`
 	Roles          []string            `json:"roles"`
-	UserEmail      *string             `json:"userEmail"`
 	ResponseStatus int                 `json:"responseStatus"`
 	ResponseTime   int64               `json:"responseTime"`
 	RequestSize    int64               `json:"requestSize"`
@@ -187,14 +186,8 @@ func (m *AuditMiddleware) Handler(next http.Handler) http.Handler {
 		if auditData.UserID == nil {
 			auditData.UserID = nil
 		}
-		if auditData.OrganizationID == nil {
-			auditData.OrganizationID = nil
-		}
 		if auditData.UserName == nil {
 			auditData.UserName = nil
-		}
-		if auditData.UserEmail == nil {
-			auditData.UserEmail = nil
 		}
 		if len(auditData.Roles) == 0 {
 			auditData.Roles = nil
@@ -244,6 +237,12 @@ func sanitizeHeaders(headers http.Header) map[string]string {
 
 	for key, values := range headers {
 		lowerKey := strings.ToLower(key)
+		if lowerKey == "referer" {
+			if referer := sanitizeReferer(values); referer != "" {
+				sanitized[key] = referer
+			}
+			continue
+		}
 		if !sensitiveHeaders[lowerKey] {
 			// Join multiple values with comma
 			sanitized[key] = strings.Join(values, ", ")
@@ -251,6 +250,19 @@ func sanitizeHeaders(headers http.Header) map[string]string {
 	}
 
 	return sanitized
+}
+
+func sanitizeReferer(values []string) string {
+	if len(values) == 0 {
+		return ""
+	}
+
+	parsed, err := url.Parse(values[0])
+	if err != nil {
+		return ""
+	}
+
+	return parsed.Hostname()
 }
 
 // sanitizeBody redacts sensitive fields from request/response body

@@ -124,10 +124,14 @@ func TestShouldSkipLoggingMatchesPathPrefix(t *testing.T) {
 func TestSanitizeHeadersRemovesAuthorization(t *testing.T) {
 	h := http.Header{}
 	h.Set("Authorization", "Bearer secret")
+	h.Set("Referer", "https://example.com/dashboard?foo=bar")
 	h.Set("Content-Type", "application/json")
 	sanitized := sanitizeHeaders(h)
 	if _, ok := sanitized["Authorization"]; ok {
 		t.Error("expected Authorization to be redacted")
+	}
+	if sanitized["Referer"] != "example.com" {
+		t.Errorf("expected Referer hostname only, got %q", sanitized["Referer"])
 	}
 	if sanitized["Content-Type"] != "application/json" {
 		t.Errorf("expected Content-Type preserved, got %v", sanitized)
@@ -297,5 +301,15 @@ func TestAuditMiddlewareLogsRequestWithTokenClaims(t *testing.T) {
 	}
 	if len(entry.Roles) != 1 || entry.Roles[0] != "admin" {
 		t.Fatalf("expected admin role, got %v", entry.Roles)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(output), &raw); err != nil {
+		t.Fatalf("unmarshal raw audit log output: %v\noutput: %s", err, output)
+	}
+	if _, ok := raw["organizationId"]; ok {
+		t.Fatal("expected organizationId to be omitted from audit log")
+	}
+	if _, ok := raw["userEmail"]; ok {
+		t.Fatal("expected userEmail to be omitted from audit log")
 	}
 }
