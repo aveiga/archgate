@@ -75,6 +75,8 @@ func resolveRoutesDir() string {
 
 func main() {
 	loadEnvFile(".env")
+	log.Printf("Routes directory path: %s", resolveRoutesDir())
+	log.Printf("Config path: %s", os.Getenv("CONFIG_PATH"))
 
 	// Parse command line flags
 	configPath := flag.String("config", "", "Path to configuration file (or set CONFIG_PATH env var)")
