@@ -7,85 +7,19 @@
   <img src="archgate-logo.jpeg" alt="Archgate logo" />
 </p>
 
-A high-performance, configurable API Gateway written in Go with Keycloak integration for RBAC (Role-Based Access Control).
+A high-performance, configurable API Gateway written in Go with Keycloak integration for RBAC (Role-Based Access Control). Zero dependencies (almost).
 
-## Features
-
-- **YAML-based Configuration**: Dynamic route configuration with regex pattern matching
-- **Keycloak Integration**: Token introspection for authentication and authorization
-- **RBAC Support**: Role-based access control with AND/OR logic
-- **Token Caching**: Configurable token cache to reduce Keycloak load
-- **Connection Pooling**: Efficient connection reuse for upstream services
-- **Path Rewriting**: Strip prefixes before forwarding to upstream services
-- **Graceful Shutdown**: Clean shutdown handling for production deployments
-
-## Project Structure
-
-```
-archgate/
-├── cmd/gateway/main.go           # Entry point, config loading, server startup
-├── config.example.yaml           # Base config (server, authz, cache)
-├── internal/
-│   ├── config/config.go          # YAML config structs and loader
-│   ├── auth/keycloak.go          # Keycloak introspection client
-│   ├── middleware/
-│   │   ├── auth.go               # JWT extraction and validation middleware
-│   │   └── rbac.go               # Role-based access control middleware
-│   ├── proxy/proxy.go            # Reverse proxy with connection pooling
-│   └── router/router.go          # Regex-based route matching
-└── go.mod
-```
-
-## Building
-
-### Local Build
-
-```bash
-go build ./cmd/gateway
-```
-
-### Docker Build
-
-```bash
-# Build for current platform
-docker build -t archgate .
-
-# Build for specific platform (e.g., Apple M-series)
-docker build --platform linux/arm64 -t archgate .
-
-# Build for multiple platforms
-docker buildx build --platform linux/amd64,linux/arm64 -t archgate .
-```
-
-## Running
-
-### Local Execution
-
-```bash
-# Use the default /routes directory
-CONFIG_PATH=config.yaml ./gateway
-
-# Override the routes directory
-CONFIG_PATH=config.yaml ROUTES_DIR_PATH=./routes ./gateway
-```
-
-### Docker Execution
+## How to run
 
 ```bash
 # Using Docker image from GitHub Container Registry
 docker run -p 4010:4010 \
+  -e CONFIG_PATH=/app/config.yaml \
+  -e ROUTES_DIR_PATH=/app/routes \
   -v $(pwd)/config.yaml:/app/config.yaml \
-  -v $(pwd)/routes:/routes \
+  -v $(pwd)/routes:/app/routes \
   ghcr.io/aveiga/archgate:latest
-
-# Or build and run locally
-docker run -p 4010:4010 \
-  -v $(pwd)/config.yaml:/app/config.yaml \
-  -v $(pwd)/routes:/routes \
-  archgate
 ```
-
-**Note**: Replace `aveiga/archgate` with your GitHub username/organization and repository name.
 
 ## Configuration
 
@@ -159,6 +93,89 @@ Example:
 ```yaml
 client_secret: "${KEYCLOAK_CLIENT_SECRET}"
 ```
+
+## Features
+
+- **YAML-based Configuration**: Dynamic route configuration with regex pattern matching
+- **Keycloak Integration**: Token introspection for authentication and authorization
+- **RBAC Support**: Role-based access control with AND/OR logic
+- **Token Caching**: Configurable token cache to reduce Keycloak load
+- **Connection Pooling**: Efficient connection reuse for upstream services
+- **Path Rewriting**: Strip prefixes before forwarding to upstream services
+- **Graceful Shutdown**: Clean shutdown handling for production deployments
+
+## Project Structure
+
+```
+archgate/
+├── cmd/gateway/main.go           # Entry point, config loading, server startup
+├── config.example.yaml           # Base config (server, authz, cache)
+├── internal/
+│   ├── config/config.go          # YAML config structs and loader
+│   ├── auth/keycloak.go          # Keycloak introspection client
+│   ├── middleware/
+│   │   ├── auth.go               # JWT extraction and validation middleware
+│   │   └── rbac.go               # Role-based access control middleware
+│   ├── proxy/proxy.go            # Reverse proxy with connection pooling
+│   └── router/router.go          # Regex-based route matching
+└── go.mod
+```
+
+## Building
+
+### Local Build
+
+```bash
+go build ./cmd/gateway
+```
+
+### Docker Build
+
+```bash
+# Build for current platform
+docker build -t archgate .
+
+# Build for specific platform (e.g., Apple M-series)
+docker build --platform linux/arm64 -t archgate .
+
+# Build for multiple platforms
+docker buildx build --platform linux/amd64,linux/arm64 -t archgate .
+```
+
+## Running
+
+### Local Execution
+
+```bash
+# Use the default /routes directory
+CONFIG_PATH=config.yaml ./gateway
+
+# Override the routes directory
+CONFIG_PATH=config.yaml ROUTES_DIR_PATH=./routes ./gateway
+```
+
+### Docker Execution
+
+```bash
+# Using Docker image from GitHub Container Registry
+docker run -p 4010:4010 \
+  -e CONFIG_PATH=/app/config.yaml \
+  -e ROUTES_DIR_PATH=/routes \
+  -v $(pwd)/config.yaml:/app/config.yaml \
+  -v $(pwd)/routes:/routes \
+  ghcr.io/aveiga/archgate:latest
+
+# Or build and run locally
+docker run -p 4010:4010 \
+  -e CONFIG_PATH=/app/config.yaml \
+  -e ROUTES_DIR_PATH=/routes \
+  -v $(pwd)/config.yaml:/app/config.yaml \
+  -v $(pwd)/routes:/routes \
+  archgate
+```
+
+**Note**: Replace `aveiga/archgate` with your GitHub username/organization and repository name.
+
 
 ## Request Flow
 
