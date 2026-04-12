@@ -1,12 +1,15 @@
 package proxy
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/aveiga/archgate/internal/auth"
 	"github.com/aveiga/archgate/internal/config"
+	"github.com/aveiga/archgate/internal/middleware"
 )
 
 func TestNewProxyFailsWithInvalidUpstreamURL(t *testing.T) {
@@ -133,5 +136,70 @@ func TestProxyForwardHeadersFallbackWhenSplitHostPortFails(t *testing.T) {
 
 	if !strings.Contains(capturedXFF, "192.168.1.100") {
 		t.Errorf("expected X-Forwarded-For to contain client IP when RemoteAddr has no port, got %q", capturedXFF)
+	}
+}
+
+func TestProxyForwardHeadersInjectsTrustedUsernameFromClaims(t *testing.T) {
+	var capturedUsername string
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedUsername = r.Header.Get(trustedUsernameHeader)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer backend.Close()
+
+	route := &config.RouteConfig{
+		Name:        "test",
+		PathPattern: "^/",
+		Upstream:    backend.URL,
+		StripPrefix: "",
+	}
+	proxy, err := NewProxy(route)
+	if err != nil {
+		t.Fatalf("NewProxy: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "http://gateway/", nil)
+	req = req.WithContext(context.WithValue(req.Context(), middleware.TokenClaimsKey, &auth.IntrospectionResponse{
+		Active:   true,
+		Username: "gateway-user",
+	}))
+	rec := httptest.NewRecorder()
+	proxy.ServeHTTP(rec, req)
+
+	if capturedUsername != "gateway-user" {
+		t.Fatalf("expected trusted username header to be forwarded, got %q", capturedUsername)
+	}
+}
+
+func TestProxyForwardHeadersOverwritesSpoofedUsernameHeader(t *testing.T) {
+	var capturedUsername string
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedUsername = r.Header.Get(trustedUsernameHeader)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer backend.Close()
+
+	route := &config.RouteConfig{
+		Name:        "test",
+		PathPattern: "^/",
+		Upstream:    backend.URL,
+		StripPrefix: "",
+	}
+	proxy, err := NewProxy(route)
+	if err != nil {
+		t.Fatalf("NewProxy: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "http://gateway/", nil)
+	req.Header.Set(trustedUsernameHeader, "spoofed-user")
+	req = req.WithContext(context.WithValue(req.Context(), middleware.TokenClaimsKey, &auth.IntrospectionResponse{
+		Active:   true,
+		Username: "trusted-user",
+	}))
+	rec := httptest.NewRecorder()
+	proxy.ServeHTTP(rec, req)
+
+	if capturedUsername != "trusted-user" {
+		t.Fatalf("expected spoofed username header to be overwritten, got %q", capturedUsername)
 	}
 }
