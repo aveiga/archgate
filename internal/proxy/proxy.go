@@ -9,7 +9,10 @@ import (
 	"time"
 
 	"github.com/aveiga/archgate/internal/config"
+	"github.com/aveiga/archgate/internal/middleware"
 )
+
+const trustedUsernameHeader = "X-Username"
 
 // Proxy handles reverse proxying to upstream services
 type Proxy struct {
@@ -92,9 +95,10 @@ func forwardHeaders(req *http.Request) {
 		req.Header.Set("X-Forwarded-Host", req.Host)
 	}
 
-	// Forward user information if available (from auth middleware)
-	// This can be useful for upstream services
-	if username := req.Header.Get("X-Username"); username == "" {
-		// Could extract from token claims if needed
+	// Only forward identity asserted by the gateway itself.
+	req.Header.Del(trustedUsernameHeader)
+
+	if claims := middleware.GetTokenClaims(req); claims != nil && claims.Username != "" {
+		req.Header.Set(trustedUsernameHeader, claims.Username)
 	}
 }
