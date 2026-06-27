@@ -73,6 +73,44 @@ func resolveRoutesDir() string {
 	return routesDir
 }
 
+func newGatewayHandler(
+	routeRouter *router.Router,
+	authMW *middleware.AuthMiddleware,
+	auditMW *middleware.AuditMiddleware,
+) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		matchedRoute, matchingRules := routeRouter.MatchRoute(r)
+		if matchedRoute == nil {
+			auditMW.Handler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				http.Error(w, "Route not found", http.StatusNotFound)
+			})).ServeHTTP(w, r)
+			return
+		}
+
+		routeProxy, err := proxy.NewProxy(matchedRoute)
+		if err != nil {
+			log.Printf("Failed to create proxy for route %s: %v", matchedRoute.Name, err)
+			auditMW.Handler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+			})).ServeHTTP(w, r)
+			return
+		}
+
+		// Compose middleware chain from matched rules.
+		// Audit is outermost so auth failures (401) are still logged. For protected
+		// routes, auth populates a shared claims holder that audit reads after next.
+		var chain http.Handler = auditMW.Handler(routeProxy)
+
+		publicRules, protectedRules := splitRulesByAuth(matchingRules)
+		if len(publicRules) == 0 {
+			rbacMW := middleware.NewRBACMiddleware(matchedRoute.Name, protectedRules)
+			chain = auditMW.Handler(authMW.Handler(rbacMW.Handler(routeProxy)))
+		}
+
+		chain.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	loadEnvFile(".env")
 	log.Printf("Routes directory path: %s", resolveRoutesDir())
@@ -103,36 +141,7 @@ func main() {
 	authMW := middleware.NewAuthMiddleware(keycloakClient)
 	auditMW := middleware.NewAuditMiddleware()
 
-	// Create HTTP handler
-	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Match route
-		matchedRoute, matchingRules := routeRouter.MatchRoute(r)
-		if matchedRoute == nil {
-			http.Error(w, "Route not found", http.StatusNotFound)
-			return
-		}
-
-		// Create proxy for this route
-		routeProxy, err := proxy.NewProxy(matchedRoute)
-		if err != nil {
-			log.Printf("Failed to create proxy for route %s: %v", matchedRoute.Name, err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-
-		// Compose middleware chain from matched rules.
-		// Public routes skip auth, while protected routes run auth before audit so
-		// audit logging can read the authenticated request context.
-		var chain http.Handler = auditMW.Handler(routeProxy)
-
-		publicRules, protectedRules := splitRulesByAuth(matchingRules)
-		if len(publicRules) == 0 {
-			rbacMW := middleware.NewRBACMiddleware(matchedRoute.Name, protectedRules)
-			chain = authMW.Handler(auditMW.Handler(rbacMW.Handler(routeProxy)))
-		}
-
-		chain.ServeHTTP(w, r)
-	})
+	handler := newGatewayHandler(routeRouter, authMW, auditMW)
 
 	// Create HTTP server
 	server := &http.Server{
