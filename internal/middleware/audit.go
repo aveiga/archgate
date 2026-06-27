@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,7 +10,15 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/aveiga/archgate/internal/auth"
 )
+
+type tokenClaimsHolder struct {
+	claims *auth.IntrospectionResponse
+}
+
+const claimsHolderKey contextKey = "audit_token_claims_holder"
 
 // Skip logging for certain paths (health checks, static files, etc.)
 var skipPaths = []string{
@@ -138,8 +147,22 @@ func (m *AuditMiddleware) Handler(next http.Handler) http.Handler {
 			RequestSize: requestSize,
 		}
 
+		// Wrap response writer to capture response
+		rw := newResponseWriter(w)
+
+		// Shared holder lets auth populate claims for audit after the inner chain runs.
+		holder := &tokenClaimsHolder{}
+		ctx := context.WithValue(r.Context(), claimsHolderKey, holder)
+		r = r.WithContext(ctx)
+
+		// Call next handler
+		next.ServeHTTP(rw, r)
+
 		// Extract user information from token claims if available
-		claims := GetTokenClaims(r)
+		claims := holder.claims
+		if claims == nil {
+			claims = GetTokenClaims(r)
+		}
 		if claims != nil {
 			if claims.Username != "" {
 				requestData.UserID = &claims.Username
@@ -150,12 +173,6 @@ func (m *AuditMiddleware) Handler(next http.Handler) http.Handler {
 				requestData.Roles = roles
 			}
 		}
-
-		// Wrap response writer to capture response
-		rw := newResponseWriter(w)
-
-		// Call next handler
-		next.ServeHTTP(rw, r)
 
 		// Calculate response time
 		endTime := time.Now()

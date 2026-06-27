@@ -52,6 +52,9 @@ func (m *AuthMiddleware) Handler(next http.Handler) http.Handler {
 
 		// Store token claims in context
 		ctx := context.WithValue(r.Context(), TokenClaimsKey, introspectionResult)
+		if h, ok := r.Context().Value(claimsHolderKey).(*tokenClaimsHolder); ok {
+			h.claims = introspectionResult
+		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
